@@ -38,6 +38,44 @@ CHIP CPU {
         addressM[15],    // Address in data memory (of M)
         pc[15];          // address of next instruction
 
+    // 2:J1 1:J2 0:J3 
+    // 5:D1 4:D2 3:D3
+    // 11:C1 10:C2 9:C3 8:C4 7:C5 6:C6
+    // 12:COMP_A
+
     PARTS:
-    // Put your code here:
+    Not16(in = instruction, out[0..15] = ninstruction);
+    Not(in = instruction[15], out = loadA0);
+
+    And(a = instruction[15], b = instruction[5], out = loadA1);
+    And(a = instruction[15], b = instruction[4], out = loadD);
+    And(a = instruction[15], b = instruction[3], out = writeM);
+
+    Or(a = loadA0, b = loadA1, out = loadA);
+    
+    Not(in = zr, out = nzr);
+    Not(in = ng, out = nng);
+
+    And(a = nzr, b = nng, out = gt);
+    And(a = instruction[0], b = gt, out = jgt);
+    And(a = instruction[1], b = zr, out = jz);
+    And(a = instruction[2], b = ng, out = jlt);
+    Or(a = jgt, b = jz, out = jgtz);
+    Or(a = jgtz, b = jlt, out = jump0);
+    And(a = instruction[15], b = jump0, out = jump);
+    
+    DRegister(in = outAlu, load = loadD, out = d);
+
+    Mux16(a = instruction, b = outAlu, sel = instruction[15], out = outAluInst);
+    ARegister(in = outAluInst, load = loadA, out[0..14] = addressM, out = a);
+    Mux16(a = a, b = inM, sel = instruction[12], out = am);
+
+    ALU(x = d, y = am,
+      zx = instruction[11], nx = instruction[10],
+      zy = instruction[9],  ny = instruction[8],
+      f = instruction[7], no = instruction[6],
+      out = outM, out = outAlu,
+      zr = zr, ng = ng);
+
+    PC(in = a, inc = true, reset = reset, load = jump, out[0..14] = pc);
 }
